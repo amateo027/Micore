@@ -1,4 +1,5 @@
 mod db;
+mod crypto;
 
 use db::{DbState, Entity, EntityLink};
 use tauri::Manager;

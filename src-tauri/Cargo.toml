@@ -27,3 +27,8 @@ uuid = { version = "1.8", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 parking_lot = "0.12"
 thiserror = "1.0"
+argon2 = "0.5"
+aes-gcm = "0.10"
+rand = "0.8"
+zeroize = { version = "1.8", features = ["zeroize_derive"] }
+subtle = "2.5"
