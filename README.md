@@ -11,7 +11,7 @@
 <summary><b>Phase 1: Core Architecture & Storage (Foundation)</b></summary>
 
 * [x] Design SQLite schema with relational link tables for cross-referencing
-* [ ] Implement secure storage layer (Argon2id KDF + AES-256-GCM / XChaCha20-Poly1305)
+* [x] Implement secure storage layer (Argon2id KDF + AES-256-GCM / XChaCha20-Poly1305)
 * [ ] Set up IPC bridge commands between Rust core and Webview host
 * [ ] Implement zero-memory trace policies (secure memory wiping on lock/idle)
 
