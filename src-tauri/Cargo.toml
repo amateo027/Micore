@@ -32,3 +32,4 @@ aes-gcm = "0.10"
 rand = "0.8"
 zeroize = { version = "1.8", features = ["zeroize_derive"] }
 subtle = "2.5"
+tokio = { version = "1.53.1", features = ["time"] }

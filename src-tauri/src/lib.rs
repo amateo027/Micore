@@ -4,9 +4,10 @@ mod vault;
 
 use db::{DbState, Entity};
 use vault::VaultManager;
-use tauri::State;
+use tauri::{Manager, State};
 use uuid::Uuid;
 use chrono::Utc;
+use std::time::Duration;
 
 #[tauri::command]
 fn unlock_vault(
@@ -14,7 +15,7 @@ fn unlock_vault(
     stored_salt: Option<Vec<u8>>,
     vault: State<VaultManager>,
 ) -> Result<Vec<u8>, String> {
-    vault.unlock(passphrase.as_bytes(), stored_salt.as_deref())
+    vault.unlock(passphrase, stored_salt.as_deref())
 }
 
 #[tauri::command]
@@ -23,7 +24,20 @@ fn lock_vault(vault: State<VaultManager>) {
 }
 
 #[tauri::command]
+fn touch_activity(vault: State<VaultManager>) {
+    vault.touch();
+}
+
+#[tauri::command]
+fn set_vault_timeout(seconds: i64, vault: State<VaultManager>) {
+    vault.set_timeout(seconds);
+}
+
+#[tauri::command]
 fn is_vault_unlocked(vault: State<VaultManager>) -> bool {
+    if vault.check_idle_and_lock() {
+        return false;
+    }
     vault.is_unlocked()
 }
 
@@ -84,14 +98,29 @@ pub fn run() {
             
             let db_path = app_dir.join("micore_vault.db");
             let db_state = DbState::new(db_path).expect("Failed to initialize SQLite database");
+            let vault_mgr = VaultManager::new();
             
             app.manage(db_state);
-            app.manage(VaultManager::new());
+            app.manage(vault_mgr);
+
+            let handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let mut interval = tokio::time::interval(Duration::from_secs(2));
+                loop {
+                    interval.tick().await;
+                    if let Some(vault) = handle.try_state::<VaultManager>() {
+                        vault.check_idle_and_lock();
+                    }
+                }
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             unlock_vault,
             lock_vault,
+            touch_activity,
+            set_vault_timeout,
             is_vault_unlocked,
             create_encrypted_entity,
             read_encrypted_entity
