@@ -1,104 +1,121 @@
-import { useState } from 'preact/hooks'
-import preactLogo from './assets/preact.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './app.css'
+import { useState, useEffect } from 'preact/hooks';
+import { unlockVault, lockVault, checkVaultStatus, touchActivity } from './api/vault';
 
 export function App() {
-  const [count, setCount] = useState(0)
+  const [isUnlocked, setIsUnlocked] = useState<boolean>(false);
+  const [passphrase, setPassphrase] = useState<string>('');
+  const [error, setError] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleUserActivity = () => {
+      if (isUnlocked) {
+        touchActivity().catch(() => {});
+      }
+    };
+
+    window.addEventListener('mousemove', handleUserActivity);
+    window.addEventListener('keydown', handleUserActivity);
+    window.addEventListener('click', handleUserActivity);
+
+    const interval = setInterval(async () => {
+      try {
+        const unlocked = await checkVaultStatus();
+        setIsUnlocked(unlocked);
+      } catch {
+        setIsUnlocked(false);
+      }
+    }, 1000);
+
+    return () => {
+      window.removeEventListener('mousemove', handleUserActivity);
+      window.removeEventListener('keydown', handleUserActivity);
+      window.removeEventListener('click', handleUserActivity);
+      clearInterval(interval);
+    };
+  }, [isUnlocked]);
+
+  const handleUnlock = async (e: Event) => {
+    e.preventDefault();
+    if (!passphrase) return;
+
+    setLoading(true);
+    setError('');
+
+    try {
+      await unlockVault(passphrase);
+      setIsUnlocked(true);
+      setPassphrase('');
+    } catch (err) {
+      setError('Invalid passphrase or initialization error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+  const handleLock = async () => {
+    await lockVault();
+    setIsUnlocked(false);
+  };
 
   return (
-    <>
-      <section id="center">
-        <div class="hero">
-          <img src={heroImg} class="base" width="170" height="179" alt="" />
-          <img src={preactLogo} class="framework" alt="Preact logo" />
-          <img src={viteLogo} class="vite" alt="Vite logo" />
+    <div className="flex h-screen w-screen flex-col bg-zinc-950 text-zinc-200 select-none overflow-hidden">
+      <header className="drag-region flex h-9 w-full items-center justify-between border-b border-zinc-800/60 bg-zinc-900/50 px-3 text-xs text-zinc-400">
+        <span className="font-mono font-medium tracking-wide text-zinc-300">MICORE</span>
+        <div className="no-drag flex items-center gap-2">
+          <span className={`h-2 w-2 rounded-full ${isUnlocked ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+          <span className="text-[10px] text-zinc-500">{isUnlocked ? 'UNLOCKED' : 'LOCKED'}</span>
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/app.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          class="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+      </header>
 
-      <div class="ticks"></div>
+      {/* Main View Container */}
+      <main className="flex flex-1 items-center justify-center p-6">
+        {!isUnlocked ? (
+          /* Locked State Screen */
+          <form onSubmit={handleUnlock} className="w-full max-w-sm rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-6 shadow-2xl backdrop-blur-sm">
+            <h2 className="text-lg font-bold text-zinc-100 mb-1">Unlock Vault</h2>
+            <p className="text-xs text-zinc-400 mb-4">Enter master passphrase to derive decryption key.</p>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg class="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img class="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://preactjs.com/" target="_blank">
-                <img class="button-icon" src={preactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg class="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg class="button-icon" role="presentation" aria-hidden="true">
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg class="button-icon" role="presentation" aria-hidden="true">
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg class="button-icon" role="presentation" aria-hidden="true">
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg class="button-icon" role="presentation" aria-hidden="true">
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+            {error && (
+              <div className="mb-3 rounded-lg bg-rose-500/10 border border-rose-500/20 p-2 text-xs text-rose-400">
+                {error}
+              </div>
+            )}
 
-      <div class="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+            <input
+              type="password"
+              value={passphrase}
+              onInput={(e) => setPassphrase((e.target as HTMLInputElement).value)}
+              placeholder="Master Passphrase"
+              className="w-full rounded-lg border border-zinc-700/60 bg-zinc-950/80 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:border-indigo-500 focus:outline-none mb-4"
+              autoFocus
+            />
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-lg bg-indigo-600 py-2 text-xs font-semibold text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 disabled:opacity-50 transition-all"
+            >
+              {loading ? 'Deriving Argon2id Key...' : 'Unlock Session'}
+            </button>
+          </form>
+        ) : (
+          /* Unlocked Dashboard Header / Placeholder */
+          <div className="flex flex-col items-center max-w-md text-center">
+            <h1 className="text-xl font-bold text-zinc-100 mb-2">Vault Active</h1>
+            <p className="text-xs text-zinc-400 mb-6">
+              Core storage and secure memory pipeline active. Idle timer will auto-lock vault after 5 minutes.
+            </p>
+            <button
+              onClick={handleLock}
+              className="rounded-lg bg-zinc-800 border border-zinc-700/60 px-4 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-700 hover:text-white transition-all"
+            >
+              Lock Vault Now
+            </button>
+          </div>
+        )}
+      </main>
+    </div>
+  );
 }
